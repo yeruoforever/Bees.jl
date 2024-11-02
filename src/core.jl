@@ -25,9 +25,7 @@ function unsafe_call(obj, args::Dict, memory::Dict, status::Dict)
     for f in fields
         if haskey(args, f)
             push!(ps, Expr(:kw, f, args[f]))
-        elseif f in required && f != :__context__
-            throw(ArgumentError("Missing required parameter `$(f)` for function `$obj`."))
-        elseif f in required && f != :__memory__
+        elseif f in required && f != Symbol("__status__") && f != Symbol("__memory__")
             throw(ArgumentError("Missing required parameter `$(f)` for function `$obj`."))
         end
     end
@@ -63,12 +61,13 @@ function think_and_plan(bee::Bee, history::Vector{Message})::Plan
     completions(bee.inspiration, history; tools)
 end
 
-function handle_result(v)
+function handle_result(v::Any)
     Result(value=string(v))
 end
 
 function handle_result(v::Result)
-    v
+    isnothing(v.value) && return v
+    Result(value=string(v.value), memory=v.memory, status=v.status, bee=v.bee, flag=v.flag)
 end
 
 function handle_result(v::Nothing)

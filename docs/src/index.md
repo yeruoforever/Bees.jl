@@ -224,3 +224,108 @@ end
     "The probability of rain in $location is $(p*100)%."
 end
 ```
+
+### Transfer the session to other bee
+
+When current bee can't handle the task, it can transfer the session to other bee.
+A transfer can be defined as a function which returns a `Bee`.
+
+```julia
+"transfer the session to the email bee"
+@juliatool function transfer_to_email()
+    Bee(name="Email Bee")
+end
+```
+
+### Memory of Bee and the State of Swarm
+
+A bee can remember the usable information in the session and the swarm can keep the state of the session.
+
+```julia
+bee = Bee(name="Weather Bee", memory=Dict(:location => "New York", :temp => 65, :unit => "F"))
+swarm = Swarm(name="Send the emails", state=Dict(:who => "Bob", :address => "Bob@Home"))
+```
+
+### Read the memory and the state
+
+A bee's **memory** can be helpful when using the tool,
+and a bee should have the ability to get the **status** of the swarm.
+Two special parameters, `__memory__` and `__status__`,
+are used to achieve this.
+
+```julia
+"send a email with the weather details"
+@juliatool function send_weather_email(;
+    __memory__, __status__
+)
+    location = __memory__[:location]
+    temp = __memory__[:temp]
+    unit = __memory__[:unit]
+    """
+    TO: $(__status__[:who])
+    SUBJECT: Weather Details about $(location)
+    BODY:
+        The current temperature in $(location) is $(temp)°$(unit).
+        Have a nice day!
+    """
+end
+```
+
+### Set the memory and Change the status
+
+The memory and the status are mutable, so you can change them in the function.
+In some cases, the bee would encounter an error, it's dangerous to change the memory and the status directly.
+In fact, the `__memory__` and the `__status__` are the copys of the memory and the status,
+so some runtime error would not affect the memory and the status.
+
+If you want to change the memory and the status,
+you can use the `Result` type to return the new memory and the new status.
+The memory and status only update when the tool return successfully.
+
+```julia
+"set a+3 to the memory"
+@juliatool function set_memory(;
+    __memory__::Dict{Symbol,Any}
+)
+    v = __memory__[:a] + 3
+    Result(value=v, memory=Dict(:a => v))
+end
+
+"set b+4 to status and set c to 0"
+@juliatool function set_status(;
+    __status__::Dict{Symbol,Any}
+)
+    v = __status__[:b] + 4
+    Result(value=v, status=Dict(:b => v, :c => 0))
+end
+
+plan = Plan(describe="test plan", tools=[
+    ToolCall(name="set_memory", args="""{}"""),
+    ToolCall(name="set_status", args="""{}""")
+])
+
+messages, bees = do_things!(plan, bee, swarm)
+
+for m in messages
+    println(m)
+end
+
+bee.memory[:a] == 3
+swarm.status[:b] == 3
+swarm.status[:c] == 0
+```
+
+### All together
+
+The  `Result` type allows a single tool invocation to modify memory, set status, and switch Bees!
+
+```julia
+@kwdef struct Result{T}
+    value::Optional{T} = nothing
+    flag::StatusType = Status.success
+    bee::Optional{Bee} = nothing
+    status::Optional{Dict} = nothing
+    memory::Optional{Dict} = nothing
+end
+
+```

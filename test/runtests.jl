@@ -1,7 +1,7 @@
 using Test
 
 using Bees
-using Bees.Types: ToolDefinition, Message
+using Bees.Types: ToolDefinition, Message, ToolCall
 using Bees.APIs
 using OpenAI: OpenAIProvider
 
@@ -29,7 +29,6 @@ if local_host
                 msg = Message(content="hello", sender="Test")
                 res = completions(provider, model_id, [msg])
                 m = res.choices[1].message
-                m |> dump
             end
             @test true
         end
@@ -181,6 +180,79 @@ end
                 @test p.description == "this is b"
             end
         end
+    end
+
+    @testset "Memory and Status" begin
+        using Bees: do_things!
+
+        "add 1 to memory"
+        @juliatool function add_memory(;
+            __memory__::Dict{Symbol,Any}
+        )
+            __memory__[:a] += 1
+        end
+
+        "add 1 to status"
+        @juliatool function add_status(;
+            __status__::Dict{Symbol,Any}
+        )
+            __status__[:a] += 1
+        end
+
+        plan = Plan(describe="test plan", tools=[
+            ToolCall(name="add_memory", args="""{}"""),
+            ToolCall(name="add_status", args="""{}""")
+        ])
+
+        struct InsertionNone <: AbstractInspiration end
+
+        bee = Bee(
+            inspiration=InsertionNone(),
+            tools=[add_memory, add_status],
+            memory=Dict{Symbol,Any}(:a => 0),
+        )
+
+        swarm = Swarm(target="test", status=Dict{Symbol,Any}(:a => 0))
+        messages, bees = do_things!(plan, bee, swarm)
+        for m in messages
+            @test m.content == "1"
+        end
+        @test bee.memory[:a] == 0
+        @test swarm.status[:a] == 0
+
+        "set a+3 to memory"
+        @juliatool function set_memory(;
+            __memory__::Dict{Symbol,Any}
+        )
+            v = __memory__[:a] + 3
+            Result(value=v, memory=Dict(:a => v))
+        end
+
+        "set a+3 to status"
+        @juliatool function set_status(;
+            __status__::Dict{Symbol,Any}
+        )
+            v = __status__[:a] + 3
+            Result(value=v, status=Dict(:a => v, :c => v))
+        end
+        bee = Bee(
+            inspiration=InsertionNone(),
+            tools=[set_memory, set_status],
+            memory=Dict{Symbol,Any}(:a => 0),
+        )
+
+        plan = Plan(describe="test plan", tools=[
+            ToolCall(name="set_memory", args="""{}"""),
+            ToolCall(name="set_status", args="""{}""")
+        ])
+        messages, bees = do_things!(plan, bee, swarm)
+        for m in messages
+            @test m.content == "3"
+        end
+        @test bee.memory[:a] == 3
+        @test swarm.status[:a] == 3
+        @test swarm.status[:c] == 3
+
     end
 end
 

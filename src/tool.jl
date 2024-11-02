@@ -102,22 +102,6 @@ macro juliatool(exp)
     esc(Core.@__doc__ kwfunc)
 end
 
-
-# function parse_into(t::Type{T}, json) where {T}
-#     t <: Union{Number,Nothing,String} && return json # built-in types
-#     t <: Symbol && return Symbol(json)
-#     t <: Array && return eltype(t)[parse_into(eltype(t), e) for e in json]
-#     Nothing <: t && return parse_into(t.b, json) # TODO: Union{Nothing,T1,T2,T3,...} ?
-#     args = []
-#     for e in fieldnames(t)
-#         if e in keys(json)
-#             tt = fieldtype(t, e)
-#             v = isnothing(json[e]) ? nothing : parse_into(tt, json[e])
-#             push!(args, e => v)
-#         end
-#     end
-#     t(; args...)
-# end
 export @juliatool, @desc_str, ↦
 
 end

@@ -120,8 +120,8 @@ end
     value::Optional{T} = nothing
     flag::StatusType = Status.success
     bee::Optional{Bee} = nothing
-    status::Optional{Dict{Symbol,Any}} = nothing
-    memory::Optional{Dict{Symbol,Any}} = nothing
+    status::Optional{Dict} = nothing
+    memory::Optional{Dict} = nothing
 end
 
 "the swarm."
